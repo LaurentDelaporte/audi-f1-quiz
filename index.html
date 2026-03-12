@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audi F1 Expert Quiz | GitHub Edition</title>
+    <style>
+        :root {
+            --audi-red: #f1052d;
+            --audi-black: #000000;
+            --audi-grey: #333333;
+            --audi-silver: #f4f4f4;
+            --success: #28a745;
+            --error: #dc3545;
+        }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--audi-black); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #quiz-container { background: #1a1a1a; width: 95%; max-width: 800px; padding: 40px; border-radius: 4px; border-left: 4px solid var(--audi-red); position: relative; }
+        #timer { font-size: 1.5rem; color: var(--audi-red); font-weight: bold; text-align: right; margin-bottom: 10px; font-family: monospace; }
+        .question { font-size: 1.4rem; margin-bottom: 25px; line-height: 1.4; min-height: 60px; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { padding: 18px; border: 1px solid #444; background: #222; color: white; cursor: pointer; transition: 0.2s; font-size: 1rem; text-align: left; }
+        button:hover:not(:disabled) { background: var(--audi-grey); border-color: var(--audi-red); }
+        button:disabled { cursor: default; }
+        .correct { background: var(--success) !important; border-color: var(--success); }
+        .wrong { background: var(--error) !important; border-color: var(--error); }
+        
+        #insight-box { margin-top: 25px; padding: 20px; background: #252525; border-left: 3px solid var(--audi-red); display: none; }
+        #insight-box h4 { margin: 0 0 10px 0; color: var(--audi-red); text-transform: uppercase; font-size: 0.9rem; }
+        #next-btn { margin-top: 20px; background: var(--audi-red); color: white; border: none; padding: 12px 30px; cursor: pointer; float: right; font-weight: bold; text-transform: uppercase; }
+        
+        .progress-bar { height: 4px; background: #333; width: 100%; margin-bottom: 30px; }
+        .progress-fill { height: 100%; background: var(--audi-red); width: 0%; transition: 0.4s; }
+        #score-screen { text-align: center; display: none; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+    <div id="game-view">
+        <div id="timer">30s</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <div id="question-text" class="question">Chargement de la simulation...</div>
+        <div id="options-container" class="options"></div>
+        
+        <div id="insight-box">
+            <h4>Expert Insight</h4>
+            <p id="insight-text"></p>
+            <button id="next-btn" onclick="loadNextQuestion()">Question Suivante →</button>
+        </div>
+    </div>
+
+    <div id="score-screen">
+        <h1 style="color: var(--audi-red)">Mission Accomplie</h1>
+        <p>Analyse des performances terminée.</p>
+        <p id="final-score" style="font-size: 3rem; margin: 20px 0;"></p>
+        <button onclick="location.reload()" style="background: white; color: black; font-weight: bold; border: none; padding: 15px 40px;">RELANCER LE CYCLE</button>
+    </div>
+</div>
+
+<script>
+const quizData = [
+    { 
+        q: "Où est situé le 'Competence Center Motorsport' où Audi développe son moteur F1 ?", 
+        o: ["Ingolstadt", "Neuburg an der Donau", "Neckarsulm", "Hinwil"], 
+        a: 1,
+        i: "Le complexe de Neuburg est l'un des plus modernes au monde. Il a déjà accueilli le développement des moteurs pour le Mans et le Dakar."
+    },
+    { 
+        q: "Quel est le défi majeur du règlement moteur 2026 qu'Audi a cité comme facteur clé de son entrée ?", 
+        o: ["Le retour du V10", "L'augmentation de la puissance électrique à 50%", "L'interdiction de la télémétrie", "Le passage au 4 roues motrices"], 
+        a: 1,
+        i: "La F1 2026 verra la puissance du moteur électrique (MGU-K) passer de 120 kW à 350 kW, un terrain d'innovation crucial pour Audi."
+    },
+    { 
+        q: "Qui a été nommé directeur technique de l'écurie Audi F1 en 2024 (en provenance de Red Bull) ?", 
+        o: ["Adrian Newey", "Jonathan Wheatley", "Mattia Binotto", "James Key"], 
+        a: 1,
+        i: "Jonathan Wheatley rejoindra l'équipe en tant que Team Principal pour apporter la culture de la gagne acquise chez Red Bull."
+    },
+    { 
+        q: "Quelle technologie de récupération d'énergie, présente depuis 2014, sera supprimée en 2026 ?", 
+        o: ["MGU-K", "MGU-H", "KERS", "Turbocompresseur"], 
+        a: 1,
+        i: "Le MGU-H (récupération de la chaleur des gaz d'échappement) est supprimé pour simplifier le moteur et attirer de nouveaux constructeurs comme Audi."
+    },
+    { 
+        q: "Quel pourcentage du capital de Sauber Audi a-t-elle finalement décidé d'acquérir ?", 
+        o: ["25%", "50%", "75%", "100%"], 
+        a: 3,
+        i: "Initialement prévu à 75%, Audi a confirmé en 2024 le rachat total (100%) du groupe Sauber pour un contrôle complet du projet."
+    },
+    { 
+        q: "À quel régime maximum (RPM) le V6 thermique est-il limité par le futur règlement ?", 
+        o: ["12 000 tr/min", "15 000 tr/min", "18 000 tr/min", "10 500 tr/min"], 
+        a: 1,
+        i: "Bien que limités à 15 000 tr/min, les moteurs tournent rarement à ce régime en course pour optimiser le débit de carburant."
+    },
+    { 
+        q: "Comment s'appelle le PDG d'Audi Formula Racing GmbH ?", 
+        o: ["Adam Baker", "Andreas Seidl", "Oliver Hoffmann", "Gernot Döllner"], 
+        a: 0,
+        i: "Adam Baker, un ancien de la FIA, a été la première recrue majeure pour structurer l'unité de puissance d'Audi."
+    },
+    { 
+        q: "En 1930, quelle marque du groupe Audi (Auto Union) dominait les Grands Prix ?", 
+        o: ["Horch", "Wanderer", "DKW", "Auto Union"], 
+        a: 3,
+        i: "Les légendaires 'Flèches d'Argent' d'Auto Union utilisaient déjà des moteurs en position centrale arrière, une révolution pour l'époque."
+    },
+    { 
+        q: "Quel est le débit maximum de carburant (en énergie) autorisé en 2026 ?", 
+        o: ["3000 MJ/h", "2700 MJ/h", "100 kg/h", "80 kg/h"], 
+        a: 0,
+        i: "Le règlement passe d'une limite de débit massique (kg/h) à une limite de débit énergétique (MJ/h) pour s'adapter aux carburants durables."
+    },
+    { 
+        q: "Quel pilote expérimenté a signé un contrat pluriannuel dès 2024 pour mener le projet ?", 
+        o: ["Valtteri Bottas", "Carlos Sainz", "Nico Hülkenberg", "Esteban Ocon"], 
+        a: 2,
+        i: "Nico Hülkenberg est reconnu pour sa capacité de développement technique, un atout majeur pour une nouvelle écurie."
+    }
+	// Suite des questions (11 à 50)
+{ q: "Quel est le poids minimal imposé pour le moteur à combustion interne (ICE) en 2026 ?", o: ["100 kg", "130 kg", "150 kg", "180 kg"], a: 1, i: "Le poids minimal de l'ICE est fixé à 130 kg pour éviter l'utilisation de matériaux exotiques trop coûteux." },
+{ q: "Quelle est la capacité maximale de stockage d'énergie autorisée pour la batterie (ES) ?", o: ["2 MJ", "4 MJ", "10 MJ", "Illimitée"], a: 1, i: "La batterie doit être capable de délivrer et de récupérer 4 MJ par tour de manière cyclique." },
+{ q: "Qui est le président du conseil d'administration d'Audi AG qui a validé le rachat total de Sauber ?", o: ["Markus Duesmann", "Gernot Döllner", "Herbert Diess", "Abraham Schot"], a: 1, i: "Gernot Döllner a réaffirmé l'engagement total d'Audi en F1 malgré les changements de direction." },
+{ q: "Comment s'appelle le nouveau bâtiment de 3 000 m² construit à Neuburg ?", o: ["F1 Factory", "Bâtiment F7.2", "Audi Power Lab", "The Ring"], a: 1, i: "Ce bâtiment abrite spécifiquement les nouveaux bancs d'essais pour le développement de l'unité de puissance." },
+{ q: "Quel type de carburant la F1 utilisera-t-elle exclusivement dès 2026 ?", o: ["Bioéthanol E85", "Carburant 100% durable (e-fuels)", "Hydrogène liquide", "Sans-plomb 98"], a: 1, i: "Audi mise énormément sur les e-fuels, une technologie qu'ils testent déjà en interne pour la production de série." },
+{ q: "Quel ancien ingénieur de McLaren et de la FIA a rejoint Audi comme directeur de projet ?", o: ["James Key", "Adam Baker", "Pat Fry", "Rob Marshall"], a: 1, i: "Adam Baker possède une expertise rare combinant vision constructeur et connaissance des règlements FIA." },
+{ q: "Dans quelle ville suisse se trouve l'usine Sauber qui deviendra l'usine de châssis Audi ?", o: ["Zurich", "Hinwil", "Genève", "Bâle"], a: 1, i: "L'usine de Hinwil est célèbre pour sa soufflerie ultra-performante, l'une des meilleures au monde." },
+{ q: "Quelle était la couleur dominante du concept-car Audi F1 présenté au Salon de Shanghai ?", o: ["Blanc", "Argent", "Noir", "Rouge"], a: 1, i: "L'argent brillant rappelait les célèbres Flèches d'Argent de l'époque Auto Union." },
+{ q: "Quel est l'alésage (diamètre) fixe imposé pour les cylindres du V6 2026 ?", o: ["75 mm", "80 mm", "85 mm", "90 mm"], a: 1, i: "La FIA impose un alésage fixe de 80 mm pour limiter les coûts de recherche en combustion." },
+{ q: "Combien de temps Audi prévoit-elle d'attendre avant de jouer les victoires en Grand Prix ?", o: ["Dès la 1ère année", "3 ans", "5 ans", "10 ans"], a: 1, i: "Audi a annoncé un plan de compétitivité sur 3 ans pour atteindre le sommet de la hiérarchie." },
+{ q: "Quel est le nom de la structure juridique qui gère le projet moteur ?", o: ["Audi Sport", "Audi Formula Racing GmbH", "Sauber Group", "Audi F1 Team"], a: 1, i: "C'est une entité distincte basée en Allemagne, séparée de l'exploitation de l'écurie en Suisse." },
+{ q: "Quel système de transmission sera utilisé en 2026 ?", o: ["8 rapports + marche arrière", "7 rapports + marche arrière", "Transmission variable continue", "6 rapports"], a: 0, i: "Le nombre de rapports reste fixé à 8 pour assurer une plage d'utilisation optimale du couple moteur." },
+{ q: "Quelle est la pression d'injection de carburant maximale autorisée ?", o: ["250 bar", "350 bar", "500 bar", "1000 bar"], a: 2, i: "La pression passe à 500 bar pour optimiser l'atomisation du carburant durable." },
+{ q: "Quel est le matériau interdit pour la construction du carter moteur ?", o: ["Aluminium", "Titane", "Magnésium", "Acier"], a: 2, i: "Le magnésium est interdit pour certaines pièces structurelles pour des raisons de coût et de sécurité (inflammabilité)." },
+{ q: "En 2026, quel sera le couple maximal du moteur électrique (MGU-K) ?", o: ["200 Nm", "500 Nm", "Plus de 500 Nm", "Limité par logiciel"], a: 2, i: "Avec 350 kW, le moteur électrique fournira une poussée massive, presque équivalente au moteur thermique." },
+{ q: "Quel pilote de réserve Audi a-t-elle recruté pour le simulateur en 2023 ?", o: ["Mick Schumacher", "Neel Jani", "Antonio Giovinazzi", "Robert Kubica"], a: 1, i: "Neel Jani, ancien vainqueur du Mans, apporte son immense expérience de l'hybride pour calibrer le simulateur." },
+{ q: "Quelle est la longueur totale du vilebrequin imposée par le règlement ?", o: ["Fixe pour tous", "Libre", "Minimum 350 mm", "Maximum 500 mm"], a: 0, i: "De nombreuses dimensions internes sont désormais standardisées pour éviter la course à la miniaturisation coûteuse." },
+{ q: "Quel partenaire technologique aide Audi pour la fabrication additive (impression 3D) ?", o: ["EOS", "3D Systems", "HP", "Stratasys"], a: 0, i: "Audi utilise massivement l'impression 3D métal pour des composants moteur complexes irréalisables en fonderie." },
+{ q: "Combien de capteurs de pression de chambre de combustion sont autorisés par cylindre ?", o: ["0", "1", "2", "Illimité"], a: 1, i: "Un seul capteur est autorisé pour surveiller la combustion en temps réel." },
+{ q: "Quelle est la tension maximale du système de batterie F1 d'Audi ?", o: ["400V", "800V", "1000V", "1200V"], a: 2, i: "La F1 utilise des systèmes haute tension atteignant 1000V pour maximiser l'efficacité énergétique." },
+{ q: "Quel est l'objectif de rendement thermique visé avec les e-fuels ?", o: ["Plus de 30%", "Plus de 50%", "Plus de 70%", "90%"], a: 1, i: "Atteindre 50% d'efficacité thermique est un exploit technique majeur pour un moteur à combustion." },
+{ q: "Quelle partie de l'unité de puissance sera 'gelée' (développement interdit) dès le début 2026 ?", o: ["La batterie", "Le logiciel", "L'injecteur", "Toutes les pièces mécaniques"], a: 3, i: "Pour limiter les coûts, l'architecture mécanique sera gelée, ne laissant que le logiciel comme levier de progression." },
+{ q: "Quel est le nom du simulateur de dynamique de fluide utilisé par Audi ?", o: ["Fluent", "OpenFOAM", "Star-CCM+", "Audi Flow"], a: 2, i: "Star-CCM+ est l'un des standards de l'industrie pour simuler l'aérodynamisme et le refroidissement." },
+{ q: "Quelle est la température maximale autorisée pour le carburant dans le réservoir ?", o: ["10°C", "20°C", "Plus ou moins 10°C par rapport à l'ambiante", "Pas de limite"], a: 2, i: "Le refroidissement du carburant est strictement régulé pour éviter d'augmenter artificiellement sa densité énergétique." },
+{ q: "Quel matériau est utilisé pour les disques de freins (validé pour 2026) ?", o: ["Acier", "Carbone-Carbone", "Céramique", "Fonte"], a: 1, i: "Le carbone reste le seul matériau capable de supporter les 1000°C lors des freinages intenses." },
+{ q: "Combien d'exemplaires du moteur thermique Audi peut-elle utiliser par saison en 2026 ?", o: ["2", "3", "4", "5"], a: 1, i: "Le règlement limite à 3 moteurs par an (hors pénalités) pour favoriser la fiabilité extrême." },
+{ q: "Quel est le nom du système de communication radio utilisé entre le stand et la voiture ?", o: ["Riedel", "Kenwood", "Motorola", "Audi Connect"], a: 0, i: "Riedel fournit les systèmes de communication critiques pour presque toutes les écuries de F1." },
+{ q: "Quel est l'empattement maximum (wheelbase) prévu pour les voitures 2026 ?", o: ["3400 mm", "3600 mm", "3200 mm", "3000 mm"], a: 0, i: "Les voitures 2026 seront plus courtes et plus légères que les générations précédentes." },
+{ q: "Le projet Audi F1 a été annoncé lors de quel Grand Prix ?", o: ["GP d'Allemagne", "GP de Belgique", "GP de Monaco", "GP de Miami"], a: 1, i: "L'annonce a été faite à Spa-Francorchamps en août 2022." },
+{ q: "Quelle est la largeur maximale autorisée pour la voiture en 2026 ?", o: ["1800 mm", "1900 mm", "2000 mm", "2100 mm"], a: 1, i: "Les voitures seront réduites de 2000 mm à 1900 mm pour favoriser l'agilité." },
+{ q: "Quel est le rôle exact de Mattia Binotto chez Audi ?", o: ["Team Principal", "Chief Operating & Chief Technical Officer", "PDG", "Consultant"], a: 1, i: "Binotto supervise à la fois l'usine de Hinwil et celle de Neuburg pour garantir la cohésion technique." },
+{ q: "Comment s'appelle le système de réduction de traînée active prévu pour 2026 ?", o: ["DRS+", "Active Aero", "X-Mode", "Z-Mode"], a: 2, i: "Le mode 'X' sera le réglage basse traînée pour les lignes droites, remplaçant le DRS classique." },
+{ q: "Combien de rapports de boîte de vitesses Audi doit-elle homologuer ?", o: ["1 set pour la saison", "2 sets", "Libre à chaque course", "8 sets"], a: 0, i: "Les rapports de boîte sont fixes pour toute l'année afin de réduire les coûts de production." },
+{ q: "Quel type de turbo Audi utilisera-t-elle ?", o: ["Turbo simple", "Bi-turbo", "Turbo électrique", "Turbo à géométrie variable"], a: 0, i: "Le règlement impose un turbo simple (Single Stage) pour 2026." },
+{ q: "Quel est le poids minimal de la batterie (ES) en 2026 ?", o: ["20 kg", "35 kg", "50 kg", "100 kg"], a: 1, i: "La batterie doit peser au minimum 35 kg pour éviter l'usage de métaux précieux ultra-légers." },
+{ q: "En quelle année Auto Union a remporté le championnat d'Europe (ancêtre de la F1) ?", o: ["1934", "1936", "1938", "1939"], a: 1, i: "Bernd Rosemeyer a remporté le titre en 1936 avec le légendaire Type C." },
+{ q: "Quel ingénieur moteur historique d'Audi (période V10 TDI Le Mans) conseille le projet ?", o: ["Ulrich Baretzky", "Wolfgang Ullrich", "Joest", "Hans Stuck"], a: 0, i: "Ulrich Baretzky est le 'père' des moteurs victorieux d'Audi au Mans." },
+{ q: "Quelle est la capacité maximale d'huile autorisée dans le moteur ?", o: ["2 litres", "5 litres", "10 litres", "Libre"], a: 1, i: "La consommation d'huile est aussi limitée pour éviter qu'elle ne soit brûlée comme carburant caché." },
+{ q: "Quel est le régime de ralenti moyen d'un moteur de ce type ?", o: ["800 tr/min", "2500 tr/min", "5000 tr/min", "7000 tr/min"], a: 2, i: "Les moteurs de F1 ont un ralenti très élevé pour maintenir la pression d'huile et le flux de refroidissement." },
+{ q: "Quel est le slogan technique spécifique au projet moteur d'Audi ?", o: ["Powering the Future", "F1 Power by Audi", "Engineered in Neuburg", "The 2026 Challenge"], a: 0, i: "Audi utilise souvent ce slogan pour souligner le lien entre la piste et les futures voitures de série." }
+    // Note pour l'utilisateur : Ajoute les 40 autres questions sur ce modèle {q, o, a, i}
+];
+
+let currentIdx = 0;
+let score = 0;
+let timer;
+let timeLeft = 30;
+
+function startTimer() {
+    timeLeft = 30;
+    updateTimerDisplay();
+    timer = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if(timeLeft <= 0) {
+            clearInterval(timer);
+            revealAnswer(-1); // Temps écoulé
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    document.getElementById('timer').innerText = timeLeft + "s";
+}
+
+function loadQuestion() {
+    const q = quizData[currentIdx];
+    document.getElementById('question-text').innerText = q.q;
+    document.getElementById('insight-box').style.display = 'none';
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
+    
+    q.o.forEach((opt, index) => {
+        const btn = document.createElement('button');
+        btn.innerText = opt;
+        btn.onclick = () => revealAnswer(index);
+        container.appendChild(btn);
+    });
+
+    document.getElementById('progress').style.width = `${(currentIdx / quizData.length) * 100}%`;
+    startTimer();
+}
+
+function revealAnswer(selectedIdx) {
+    clearInterval(timer);
+    const correctIdx = quizData[currentIdx].a;
+    const buttons = document.querySelectorAll('#options-container button');
+    
+    buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if(i === correctIdx) btn.classList.add('correct');
+        if(i === selectedIdx && selectedIdx !== correctIdx) btn.classList.add('wrong');
+    });
+
+    if(selectedIdx === correctIdx) score++;
+    
+    document.getElementById('insight-text').innerText = quizData[currentIdx].i;
+    document.getElementById('insight-box').style.display = 'block';
+}
+
+function loadNextQuestion() {
+    currentIdx++;
+    if(currentIdx < quizData.length) {
+        loadQuestion();
+    } else {
+        showFinalScore();
+    }
+}
+
+function showFinalScore() {
+    document.getElementById('game-view').classList.add('hidden');
+    document.getElementById('score-screen').style.display = 'block';
+    document.getElementById('final-score').innerText = `${score} / ${quizData.length}`;
+}
+
+loadQuestion();
+</script>
+</body>
+</html>
